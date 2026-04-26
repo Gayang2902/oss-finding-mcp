@@ -50,6 +50,18 @@ BUILTIN_SUITES = {
     "ruby": "ruby-security-and-quality",
 }
 
+CODEQL_REPO_PATH = Path.home() / ".codeql" / "codeql-repo"
+
+SUITE_QUERY_DIRS = {
+    "python": "python/ql/src/Security",
+    "javascript": "javascript/ql/src/Security",
+    "java": "java/ql/src/Security",
+    "go": "go/ql/src/Security",
+    "cpp": "cpp/ql/src/Security",
+    "csharp": "csharp/ql/src/Security Audit",
+    "ruby": "ruby/ql/src/Security",
+}
+
 
 class CodeQLScanner(BaseScanner):
     name = "codeql"
@@ -97,7 +109,7 @@ class CodeQLScanner(BaseScanner):
         suite = query_suite or BUILTIN_SUITES.get(db_lang, f"{db_lang}-security-and-quality")
 
         try:
-            self._run_analysis(db_path, sarif_path, suite, query_file, settings.codeql_timeout)
+            self._run_analysis(db_path, sarif_path, suite, query_file, settings.codeql_timeout, db_lang=db_lang)
         except ScannerError as e:
             errors.append(str(e))
 
@@ -141,17 +153,42 @@ class CodeQLScanner(BaseScanner):
         suite: str,
         query_file: str | None,
         timeout: int,
+        db_lang: str | None = None,
     ) -> None:
-        query_target = query_file or f"codeql/{suite}"
+        if query_file:
+            query_targets = [query_file]
+        elif CODEQL_REPO_PATH.exists() and db_lang and db_lang in SUITE_QUERY_DIRS:
+            security_dir = CODEQL_REPO_PATH / SUITE_QUERY_DIRS[db_lang]
+            query_targets = self._collect_ql_files(security_dir)
+            if not query_targets:
+                query_targets = [str(security_dir)]
+        else:
+            query_targets = [f"codeql/{suite}"]
+
         cmd = [
             "codeql", "database", "analyze",
             str(db_path),
-            query_target,
+            *query_targets,
             "--format=sarif-latest",
             f"--output={sarif_path}",
             "--sarif-add-snippets",
         ]
-        self._run_cmd(cmd, timeout=timeout, check=True, accept_codes=(0,))
+        if CODEQL_REPO_PATH.exists():
+            cmd.extend(["--additional-packs", str(CODEQL_REPO_PATH)])
+        self._run_cmd(cmd, timeout=timeout, check=True, accept_codes=(0, 1))
+
+    @staticmethod
+    def _collect_ql_files(security_dir: Path) -> list[str]:
+        """Collect .ql files, excluding known incompatible queries (Table kind)."""
+        EXCLUDE_DIRS = {"CWE-020-ExternalAPIs"}
+        ql_files: list[str] = []
+        if not security_dir.is_dir():
+            return []
+        for ql in sorted(security_dir.rglob("*.ql")):
+            if any(ex in ql.parts for ex in EXCLUDE_DIRS):
+                continue
+            ql_files.append(str(ql))
+        return ql_files
 
     def _parse_sarif(self, sarif_path: Path, project_root: Path) -> list[Finding]:
         with sarif_path.open("r", encoding="utf-8") as f:
