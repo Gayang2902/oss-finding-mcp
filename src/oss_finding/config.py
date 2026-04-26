@@ -6,6 +6,23 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
+DEFAULT_EXCLUDE_DIRS = frozenset({
+    "node_modules", "vendor", "third_party", "third-party",
+    ".git", ".svn", ".hg", "__pycache__", ".tox", ".venv", "venv",
+    "dist", "build", ".eggs", "egg-info",
+    "bower_components", "jspm_packages",
+    "fixtures", "testdata",
+})
+
+DEFAULT_EXCLUDE_GLOBS = frozenset({
+    "*.min.js", "*.min.css", "*.bundle.js", "*.map",
+    "*.generated.*", "*.pb.go", "*_generated.go",
+    "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
+    "composer.lock", "Gemfile.lock", "Cargo.lock",
+    "go.sum", "poetry.lock",
+})
+
+
 @dataclass(frozen=True)
 class Settings:
     project_root: Path
@@ -14,6 +31,8 @@ class Settings:
     semgrep_timeout: int = 300
     codeql_timeout: int = 600
     scanner_max_findings: int = 1000
+    exclude_dirs: frozenset[str] = DEFAULT_EXCLUDE_DIRS
+    exclude_globs: frozenset[str] = DEFAULT_EXCLUDE_GLOBS
 
     @property
     def semgrep_available(self) -> bool:
@@ -34,6 +53,19 @@ class Settings:
     @property
     def grype_available(self) -> bool:
         return shutil.which("grype") is not None
+
+    def should_exclude(self, path: str) -> bool:
+        from pathlib import PurePosixPath
+        import fnmatch
+        parts = PurePosixPath(path).parts
+        for part in parts:
+            if part in self.exclude_dirs:
+                return True
+        name = PurePosixPath(path).name
+        for glob in self.exclude_globs:
+            if fnmatch.fnmatch(name, glob):
+                return True
+        return False
 
     def available_scanners(self) -> dict[str, bool]:
         return {

@@ -151,6 +151,8 @@ def analyze_attack_surface(
     seen: set[str] = set()
     deduped: list[AttackSurfaceEntry] = []
     for e in all_entries:
+        if settings.should_exclude(e.location.file_path):
+            continue
         key = f"{e.entry_type}:{e.location.file_path}:{e.location.line_start}"
         if key not in seen:
             seen.add(key)

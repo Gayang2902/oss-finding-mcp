@@ -252,6 +252,8 @@ def detect_patterns(
     seen: set[str] = set()
     deduped: list[Finding] = []
     for f in findings:
+        if settings.should_exclude(f.location.file_path):
+            continue
         key = f"{f.location.file_path}:{f.location.line_start}:{f.rule_id}"
         if key not in seen:
             seen.add(key)

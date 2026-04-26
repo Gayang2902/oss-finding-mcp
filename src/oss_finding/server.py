@@ -81,6 +81,7 @@ def _build_server(settings: Settings) -> FastMCP:
         include_extras: bool = True,
         diff_aware: bool = False,
         baseline_ref: str | None = None,
+        registry_ruleset: str | None = None,
     ) -> dict:
         """Run Semgrep SAST scan with taint analysis.
 
@@ -95,6 +96,8 @@ def _build_server(settings: Settings) -> FastMCP:
             include_extras: Include dangerous pattern rules beyond taint (default True).
             diff_aware: Only report findings in changed code since baseline_ref.
             baseline_ref: Git ref for diff-aware scanning (e.g. "main", "HEAD~5").
+            registry_ruleset: Semgrep registry ruleset (e.g. "p/security-audit",
+                "p/owasp-top-ten", "p/secrets"). Overrides language/rule_file.
         """
         result = _semgrep.scan(
             settings,
@@ -104,6 +107,7 @@ def _build_server(settings: Settings) -> FastMCP:
             include_extras=include_extras,
             diff_aware=diff_aware,
             baseline_ref=baseline_ref,
+            registry_ruleset=registry_ruleset,
         )
         STORE.add_scan(result)
         return _scan_summary(result)
@@ -192,6 +196,60 @@ def _build_server(settings: Settings) -> FastMCP:
         )
         STORE.add_scan(result)
         return _scan_summary(result)
+
+    # ================================================================
+    # Orchestration
+    # ================================================================
+
+    @mcp.tool()
+    def run_all_scans(
+        target_dir: str | None = None,
+        language: str | None = None,
+        include_codeql: bool = False,
+    ) -> dict:
+        """Run all available scanners in sequence and return combined summary.
+
+        Runs: Semgrep (SAST) → Gitleaks (secrets) → OSV-Scanner (SCA).
+        CodeQL is opt-in (slower, requires language param).
+
+        Args:
+            target_dir: Subdirectory to scan.
+            language: Language hint for Semgrep/CodeQL.
+            include_codeql: Include CodeQL scan (slower, needs language).
+        """
+        results: list[dict] = []
+        target = Path(target_dir) if target_dir else None
+
+        if _semgrep.is_available():
+            r = _semgrep.scan(settings, target_dir=target, language=language)
+            STORE.add_scan(r)
+            results.append(_scan_summary(r))
+
+        if _gitleaks.is_available():
+            r = _gitleaks.scan(settings, target_dir=target)
+            STORE.add_scan(r)
+            results.append(_scan_summary(r))
+
+        if _osv.is_available():
+            r = _osv.scan(settings, target_dir=target)
+            STORE.add_scan(r)
+            results.append(_scan_summary(r))
+        elif _grype.is_available():
+            r = _grype.scan(settings, target_dir=target)
+            STORE.add_scan(r)
+            results.append(_scan_summary(r))
+
+        if include_codeql and language and _codeql.is_available():
+            r = _codeql.scan(settings, target_dir=target, language=language)
+            STORE.add_scan(r)
+            results.append(_scan_summary(r))
+
+        total_findings = sum(r["total_findings"] for r in results)
+        return {
+            "scans_completed": len(results),
+            "total_findings": total_findings,
+            "results": results,
+        }
 
     # ================================================================
     # Diff analysis

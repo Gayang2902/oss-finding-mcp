@@ -36,6 +36,17 @@ EXTRA_RULE_FILES = [
     "dangerous_injection.yaml",
 ]
 
+REGISTRY_RULESETS = [
+    "p/security-audit",
+    "p/owasp-top-ten",
+    "p/command-injection",
+    "p/insecure-transport",
+    "p/jwt",
+    "p/secrets",
+    "p/sql-injection",
+    "p/xss",
+]
+
 _SEVERITY_MAP = {
     "ERROR": Severity.HIGH,
     "WARNING": Severity.MEDIUM,
@@ -66,12 +77,16 @@ class SemgrepScanner(BaseScanner):
         include_extras: bool = True,
         diff_aware: bool = False,
         baseline_ref: str | None = None,
+        registry_ruleset: str | None = None,
     ) -> ScanResult:
         self._require_available()
         target = self._resolve_target(settings, target_dir)
-        rule_paths = self._resolve_rules(settings, language, rule_file, include_extras)
-
         scan_id = uuid.uuid4().hex[:12]
+
+        if registry_ruleset:
+            return self._scan_registry(settings, target, registry_ruleset, scan_id, diff_aware, baseline_ref)
+
+        rule_paths = self._resolve_rules(settings, language, rule_file, include_extras)
         sarif_dir = settings.cache_dir / "semgrep"
         sarif_dir.mkdir(parents=True, exist_ok=True)
 
@@ -122,6 +137,56 @@ class SemgrepScanner(BaseScanner):
             total_findings=len(all_findings),
             findings=all_findings,
             run_time_seconds=round(total_time, 2),
+            commit_hash=self._get_commit(settings.project_root),
+            errors=errors,
+        )
+
+    def _scan_registry(
+        self,
+        settings: Settings,
+        target: Path,
+        ruleset: str,
+        scan_id: str,
+        diff_aware: bool,
+        baseline_ref: str | None,
+    ) -> ScanResult:
+        sarif_dir = settings.cache_dir / "semgrep"
+        sarif_dir.mkdir(parents=True, exist_ok=True)
+        sarif_path = sarif_dir / f"{scan_id}_registry.sarif.json"
+
+        cmd = [
+            "semgrep", "scan",
+            "--config", ruleset,
+            "--sarif", "--sarif-output", str(sarif_path),
+            "--dataflow-traces",
+            "--metrics=off",
+            "--quiet",
+        ]
+        if diff_aware and baseline_ref:
+            cmd.extend(["--baseline-commit", baseline_ref])
+        cmd.append(str(target))
+
+        start = time.monotonic()
+        errors: list[str] = []
+        try:
+            self._run_cmd(cmd, timeout=settings.semgrep_timeout, accept_codes=(0, 1))
+        except Exception as e:
+            errors.append(str(e))
+
+        findings: list[Finding] = []
+        if sarif_path.exists():
+            findings = self._parse_sarif(sarif_path, settings.project_root)
+
+        if len(findings) > settings.scanner_max_findings:
+            findings = findings[:settings.scanner_max_findings]
+
+        return ScanResult(
+            scan_id=scan_id,
+            scanner=self.name,
+            category=FindingCategory.SAST,
+            total_findings=len(findings),
+            findings=findings,
+            run_time_seconds=round(time.monotonic() - start, 2),
             commit_hash=self._get_commit(settings.project_root),
             errors=errors,
         )
