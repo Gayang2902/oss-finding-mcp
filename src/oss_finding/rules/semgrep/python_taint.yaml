@@ -1,0 +1,163 @@
+rules:
+  - id: python-command-injection
+    mode: taint
+    severity: ERROR
+    message: >-
+      User input flows into command execution ($SINK). This may allow command injection.
+    languages: [python]
+    metadata:
+      cwe: ["CWE-78"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.$ATTR
+              - pattern: request.GET[...]
+              - pattern: request.POST[...]
+              - pattern: request.data
+              - pattern: request.json
+              - pattern: sys.argv[...]
+              - pattern: input(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: os.system(...)
+              - pattern: os.popen(...)
+              - pattern: subprocess.call(..., shell=True, ...)
+              - pattern: subprocess.run(..., shell=True, ...)
+              - pattern: subprocess.Popen(..., shell=True, ...)
+              - pattern: subprocess.check_output(..., shell=True, ...)
+
+  - id: python-sql-injection
+    mode: taint
+    severity: ERROR
+    message: >-
+      User input flows into SQL query ($SINK). Use parameterized queries.
+    languages: [python]
+    metadata:
+      cwe: ["CWE-89"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.$ATTR
+              - pattern: request.GET[...]
+              - pattern: request.POST[...]
+              - pattern: request.data
+              - pattern: request.args.get(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: cursor.execute(...)
+              - pattern: $DB.execute(...)
+              - pattern: $DB.executemany(...)
+              - pattern: $ENGINE.execute(...)
+
+  - id: python-ssrf
+    mode: taint
+    severity: WARNING
+    message: >-
+      User input flows into HTTP request URL ($SINK). This may allow SSRF.
+    languages: [python]
+    metadata:
+      cwe: ["CWE-918"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.$ATTR
+              - pattern: request.GET[...]
+              - pattern: request.POST[...]
+              - pattern: request.args.get(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: requests.get(...)
+              - pattern: requests.post(...)
+              - pattern: requests.put(...)
+              - pattern: requests.delete(...)
+              - pattern: requests.head(...)
+              - pattern: urllib.request.urlopen(...)
+              - pattern: httpx.get(...)
+              - pattern: httpx.post(...)
+              - pattern: aiohttp.ClientSession().get(...)
+
+  - id: python-path-traversal
+    mode: taint
+    severity: ERROR
+    message: >-
+      User input flows into file path ($SINK). This may allow path traversal.
+    languages: [python]
+    metadata:
+      cwe: ["CWE-22"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.$ATTR
+              - pattern: request.GET[...]
+              - pattern: request.POST[...]
+              - pattern: request.args.get(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: open(...)
+              - pattern: pathlib.Path(...)
+              - pattern: os.path.join(...)
+              - pattern: send_file(...)
+              - pattern: send_from_directory(...)
+
+  - id: python-ssti
+    mode: taint
+    severity: ERROR
+    message: >-
+      User input flows into template rendering ($SINK). This may allow SSTI.
+    languages: [python]
+    metadata:
+      cwe: ["CWE-1336"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.$ATTR
+              - pattern: request.GET[...]
+              - pattern: request.POST[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: render_template_string(...)
+              - pattern: jinja2.Template(...)
+              - pattern: Template(...)
+              - pattern: jinja2.Environment(...).from_string(...)
+
+  - id: python-unsafe-deserialization
+    patterns:
+      - pattern-either:
+          - pattern: pickle.loads(...)
+          - pattern: pickle.load(...)
+          - pattern: yaml.load(...)
+          - pattern: yaml.unsafe_load(...)
+          - pattern: marshal.loads(...)
+          - pattern: shelve.open(...)
+    severity: ERROR
+    message: >-
+      Unsafe deserialization detected. This can lead to RCE if input is untrusted.
+    languages: [python]
+    metadata:
+      cwe: ["CWE-502"]
+      category: security
+
+  - id: python-weak-crypto
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.md5(...)
+          - pattern: hashlib.sha1(...)
+          - pattern: Crypto.Cipher.DES.new(...)
+          - pattern: Crypto.Cipher.ARC4.new(...)
+    severity: WARNING
+    message: >-
+      Weak cryptographic algorithm detected. Use SHA-256+ or AES.
+    languages: [python]
+    metadata:
+      cwe: ["CWE-327"]
+      category: security

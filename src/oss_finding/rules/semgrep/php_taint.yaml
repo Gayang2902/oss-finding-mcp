@@ -1,0 +1,118 @@
+rules:
+  - id: php-command-injection
+    mode: taint
+    severity: ERROR
+    message: >-
+      User input flows into command execution. This may allow command injection.
+    languages: [php]
+    metadata:
+      cwe: ["CWE-78"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $_GET[...]
+              - pattern: $_POST[...]
+              - pattern: $_REQUEST[...]
+              - pattern: $_COOKIE[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: system(...)
+              - pattern: exec(...)
+              - pattern: shell_exec(...)
+              - pattern: passthru(...)
+              - pattern: popen(...)
+              - pattern: proc_open(...)
+
+  - id: php-sql-injection
+    mode: taint
+    severity: ERROR
+    message: >-
+      User input flows into SQL query. Use prepared statements.
+    languages: [php]
+    metadata:
+      cwe: ["CWE-89"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $_GET[...]
+              - pattern: $_POST[...]
+              - pattern: $_REQUEST[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $wpdb->query(...)
+              - pattern: mysqli_query(...)
+              - pattern: $mysqli->query(...)
+              - pattern: $pdo->query(...)
+              - pattern: DB::raw(...)
+              - pattern: DB::select(DB::raw(...))
+
+  - id: php-xss
+    mode: taint
+    severity: WARNING
+    message: >-
+      User input flows into HTML output without escaping. This may allow XSS.
+    languages: [php]
+    metadata:
+      cwe: ["CWE-79"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $_GET[...]
+              - pattern: $_POST[...]
+              - pattern: $_REQUEST[...]
+              - pattern: $_COOKIE[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: print($X)
+              - pattern: printf($X)
+
+  - id: php-file-inclusion
+    mode: taint
+    severity: ERROR
+    message: >-
+      User input flows into file include. This may allow LFI/RFI.
+    languages: [php]
+    metadata:
+      cwe: ["CWE-98"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $_GET[...]
+              - pattern: $_POST[...]
+              - pattern: $_REQUEST[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: include(...)
+              - pattern: include_once(...)
+              - pattern: require(...)
+              - pattern: require_once(...)
+
+  - id: php-ssrf
+    mode: taint
+    severity: WARNING
+    message: >-
+      User input flows into HTTP request. This may allow SSRF.
+    languages: [php]
+    metadata:
+      cwe: ["CWE-918"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $_GET[...]
+              - pattern: $_POST[...]
+              - pattern: $_REQUEST[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: file_get_contents(...)
+              - pattern: curl_exec(...)
+              - pattern: fopen(...)

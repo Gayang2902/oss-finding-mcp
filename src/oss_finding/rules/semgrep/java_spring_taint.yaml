@@ -1,0 +1,171 @@
+rules:
+  - id: java-command-injection
+    mode: taint
+    severity: ERROR
+    message: >-
+      User input flows into command execution. This may allow OS command injection.
+    languages: [java]
+    metadata:
+      cwe: ["CWE-78"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: (HttpServletRequest $REQ).getParameter(...)
+              - pattern: (HttpServletRequest $REQ).getHeader(...)
+              - pattern: |
+                  @RequestParam(...) $TYPE $PARAM
+              - pattern: |
+                  @PathVariable(...) $TYPE $PARAM
+              - pattern: |
+                  @RequestBody $TYPE $PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: Runtime.getRuntime().exec(...)
+              - pattern: new ProcessBuilder(...)
+              - pattern: $PB.command(...)
+
+  - id: java-sql-injection
+    mode: taint
+    severity: ERROR
+    message: >-
+      User input flows into SQL query. Use PreparedStatement or JPA parameterized queries.
+    languages: [java]
+    metadata:
+      cwe: ["CWE-89"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: (HttpServletRequest $REQ).getParameter(...)
+              - pattern: |
+                  @RequestParam(...) $TYPE $PARAM
+              - pattern: |
+                  @PathVariable(...) $TYPE $PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: (Statement $S).execute(...)
+              - pattern: (Statement $S).executeQuery(...)
+              - pattern: (Statement $S).executeUpdate(...)
+              - pattern: (Connection $C).prepareStatement(...)
+              - pattern: $EM.createNativeQuery(...)
+
+  - id: java-xss
+    mode: taint
+    severity: WARNING
+    message: >-
+      User input flows into HTTP response without encoding. This may allow XSS.
+    languages: [java]
+    metadata:
+      cwe: ["CWE-79"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: (HttpServletRequest $REQ).getParameter(...)
+              - pattern: |
+                  @RequestParam(...) $TYPE $PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: (HttpServletResponse $RESP).getWriter().write(...)
+              - pattern: (HttpServletResponse $RESP).getWriter().println(...)
+              - pattern: (PrintWriter $PW).write(...)
+
+  - id: java-ssrf
+    mode: taint
+    severity: WARNING
+    message: >-
+      User input flows into HTTP request URL. This may allow SSRF.
+    languages: [java]
+    metadata:
+      cwe: ["CWE-918"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: (HttpServletRequest $REQ).getParameter(...)
+              - pattern: |
+                  @RequestParam(...) $TYPE $PARAM
+              - pattern: |
+                  @PathVariable(...) $TYPE $PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: new URL(...)
+              - pattern: new URI(...)
+              - pattern: (RestTemplate $RT).getForObject(...)
+              - pattern: (RestTemplate $RT).postForObject(...)
+              - pattern: (WebClient.RequestHeadersUriSpec $C).uri(...)
+              - pattern: HttpClients.createDefault().execute(...)
+
+  - id: java-path-traversal
+    mode: taint
+    severity: ERROR
+    message: >-
+      User input flows into file path. This may allow path traversal.
+    languages: [java]
+    metadata:
+      cwe: ["CWE-22"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: (HttpServletRequest $REQ).getParameter(...)
+              - pattern: |
+                  @RequestParam(...) $TYPE $PARAM
+              - pattern: |
+                  @PathVariable(...) $TYPE $PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: new File(...)
+              - pattern: new FileInputStream(...)
+              - pattern: new FileOutputStream(...)
+              - pattern: Paths.get(...)
+              - pattern: Files.readAllBytes(...)
+
+  - id: java-ldap-injection
+    mode: taint
+    severity: ERROR
+    message: >-
+      User input flows into LDAP query. This may allow LDAP injection.
+    languages: [java]
+    metadata:
+      cwe: ["CWE-90"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: (HttpServletRequest $REQ).getParameter(...)
+              - pattern: |
+                  @RequestParam(...) $TYPE $PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: (DirContext $CTX).search(...)
+              - pattern: (LdapTemplate $T).search(...)
+
+  - id: java-el-injection
+    mode: taint
+    severity: ERROR
+    message: >-
+      User input flows into Expression Language evaluation. This may allow EL injection/RCE.
+    languages: [java]
+    metadata:
+      cwe: ["CWE-917"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: (HttpServletRequest $REQ).getParameter(...)
+              - pattern: |
+                  @RequestParam(...) $TYPE $PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: (ExpressionFactory $F).createValueExpression(...)
+              - pattern: (ValueExpression $E).getValue(...)
+              - pattern: (SpelExpressionParser $P).parseExpression(...)

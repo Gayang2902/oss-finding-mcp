@@ -1,0 +1,140 @@
+rules:
+  - id: js-command-injection
+    mode: taint
+    severity: ERROR
+    message: >-
+      User input flows into command execution ($SINK). This may allow command injection.
+    languages: [javascript, typescript]
+    metadata:
+      cwe: ["CWE-78"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.query.$PARAM
+              - pattern: req.params.$PARAM
+              - pattern: req.body.$PARAM
+              - pattern: req.headers[...]
+              - pattern: process.argv[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: child_process.exec(...)
+              - pattern: child_process.execSync(...)
+              - pattern: "child_process.spawn($CMD, { shell: true })"
+              - pattern: require("child_process").exec(...)
+
+  - id: js-sql-injection
+    mode: taint
+    severity: ERROR
+    message: >-
+      User input flows into SQL query. Use parameterized queries.
+    languages: [javascript, typescript]
+    metadata:
+      cwe: ["CWE-89"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.query.$PARAM
+              - pattern: req.params.$PARAM
+              - pattern: req.body.$PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $DB.query(...)
+              - pattern: $DB.raw(...)
+              - pattern: $CONN.query(...)
+              - pattern: sequelize.query(...)
+              - pattern: knex.raw(...)
+
+  - id: js-xss
+    mode: taint
+    severity: WARNING
+    message: >-
+      User input flows into HTML output. This may allow XSS.
+    languages: [javascript, typescript]
+    metadata:
+      cwe: ["CWE-79"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.query.$PARAM
+              - pattern: req.params.$PARAM
+              - pattern: req.body.$PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: res.send(...)
+              - pattern: res.write(...)
+              - pattern: $EL.innerHTML = ...
+              - pattern: document.write(...)
+
+  - id: js-ssrf
+    mode: taint
+    severity: WARNING
+    message: >-
+      User input flows into HTTP request URL. This may allow SSRF.
+    languages: [javascript, typescript]
+    metadata:
+      cwe: ["CWE-918"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.query.$PARAM
+              - pattern: req.params.$PARAM
+              - pattern: req.body.$PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: fetch(...)
+              - pattern: axios.get(...)
+              - pattern: axios.post(...)
+              - pattern: http.get(...)
+              - pattern: https.get(...)
+              - pattern: got(...)
+              - pattern: node-fetch(...)
+              - pattern: request(...)
+
+  - id: js-path-traversal
+    mode: taint
+    severity: ERROR
+    message: >-
+      User input flows into file path. This may allow path traversal.
+    languages: [javascript, typescript]
+    metadata:
+      cwe: ["CWE-22"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.query.$PARAM
+              - pattern: req.params.$PARAM
+              - pattern: req.body.$PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: fs.readFile(...)
+              - pattern: fs.readFileSync(...)
+              - pattern: fs.createReadStream(...)
+              - pattern: path.join(...)
+              - pattern: path.resolve(...)
+              - pattern: res.sendFile(...)
+
+  - id: js-prototype-pollution
+    patterns:
+      - pattern-either:
+          - pattern: $OBJ[...][...] = ...
+          - pattern: Object.assign({}, ...)
+          - pattern: $LIB.merge(...)
+          - pattern: $LIB.extend(...)
+          - pattern: $LIB.defaultsDeep(...)
+    severity: WARNING
+    message: >-
+      Potential prototype pollution. Validate that keys are not __proto__, constructor, or prototype.
+    languages: [javascript, typescript]
+    metadata:
+      cwe: ["CWE-1321"]
+      category: security

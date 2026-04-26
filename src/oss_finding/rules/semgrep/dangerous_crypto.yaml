@@ -1,0 +1,185 @@
+rules:
+  # --- Python ---
+  - id: weak-hash-python
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.md5(...)
+          - pattern: hashlib.sha1(...)
+    severity: WARNING
+    message: >-
+      Weak hash algorithm (MD5/SHA-1). Use SHA-256 or stronger.
+    languages: [python]
+    metadata:
+      cwe: ["CWE-328"]
+      category: security
+
+  - id: insecure-random-python
+    patterns:
+      - pattern-either:
+          - pattern: random.random()
+          - pattern: random.randint(...)
+          - pattern: random.choice(...)
+    severity: WARNING
+    message: >-
+      Insecure PRNG. Use secrets module for security-sensitive randomness.
+    languages: [python]
+    metadata:
+      cwe: ["CWE-338"]
+      category: security
+
+  - id: ecb-mode-python
+    pattern: AES.new(..., AES.MODE_ECB, ...)
+    severity: WARNING
+    message: >-
+      ECB mode is insecure. Use CBC, CTR, or GCM mode.
+    languages: [python]
+    metadata:
+      cwe: ["CWE-327"]
+      category: security
+
+  - id: hardcoded-iv-python
+    pattern: AES.new($KEY, $MODE, iv=b"...")
+    severity: WARNING
+    message: >-
+      Hardcoded IV detected. IV should be random for each encryption.
+    languages: [python]
+    metadata:
+      cwe: ["CWE-329"]
+      category: security
+
+  - id: no-tls-verify-python
+    patterns:
+      - pattern-either:
+          - pattern: requests.get(..., verify=False, ...)
+          - pattern: requests.post(..., verify=False, ...)
+          - pattern: urllib3.disable_warnings(...)
+    severity: WARNING
+    message: >-
+      TLS certificate verification is disabled. This allows MITM attacks.
+    languages: [python]
+    metadata:
+      cwe: ["CWE-295"]
+      category: security
+
+  # --- Java ---
+  - id: weak-hash-java
+    patterns:
+      - pattern-either:
+          - pattern: MessageDigest.getInstance("MD5")
+          - pattern: MessageDigest.getInstance("SHA-1")
+          - pattern: MessageDigest.getInstance("SHA1")
+    severity: WARNING
+    message: >-
+      Weak hash algorithm. Use SHA-256 or stronger.
+    languages: [java]
+    metadata:
+      cwe: ["CWE-328"]
+      category: security
+
+  - id: insecure-random-java
+    pattern: new java.util.Random(...)
+    severity: WARNING
+    message: >-
+      Insecure PRNG. Use java.security.SecureRandom for security purposes.
+    languages: [java]
+    metadata:
+      cwe: ["CWE-338"]
+      category: security
+
+  - id: ecb-mode-java
+    pattern: Cipher.getInstance("AES/ECB/...")
+    severity: WARNING
+    message: >-
+      ECB mode is insecure. Use CBC, CTR, or GCM mode.
+    languages: [java]
+    metadata:
+      cwe: ["CWE-327"]
+      category: security
+
+  # --- JavaScript / TypeScript ---
+  - id: weak-hash-js
+    patterns:
+      - pattern-either:
+          - pattern: crypto.createHash("md5")
+          - pattern: crypto.createHash("sha1")
+    severity: WARNING
+    message: >-
+      Weak hash algorithm. Use SHA-256 or stronger.
+    languages: [javascript, typescript]
+    metadata:
+      cwe: ["CWE-328"]
+      category: security
+
+  - id: insecure-random-js
+    pattern: Math.random()
+    severity: WARNING
+    message: >-
+      Math.random() is not cryptographically secure. Use crypto.randomBytes().
+    languages: [javascript, typescript]
+    metadata:
+      cwe: ["CWE-338"]
+      category: security
+
+  - id: hardcoded-iv-js
+    pattern: crypto.createCipheriv($ALG, $KEY, "...")
+    severity: WARNING
+    message: >-
+      Hardcoded IV detected. IV should be random for each encryption.
+    languages: [javascript, typescript]
+    metadata:
+      cwe: ["CWE-329"]
+      category: security
+
+  - id: no-tls-verify-js
+    patterns:
+      - pattern-either:
+          - pattern: "process.env.NODE_TLS_REJECT_UNAUTHORIZED = \"0\""
+          - pattern: |
+              rejectUnauthorized: false
+    severity: WARNING
+    message: >-
+      TLS certificate verification is disabled. This allows MITM attacks.
+    languages: [javascript, typescript]
+    metadata:
+      cwe: ["CWE-295"]
+      category: security
+
+  # --- Go ---
+  - id: weak-hash-go
+    patterns:
+      - pattern-either:
+          - pattern: md5.New()
+          - pattern: md5.Sum(...)
+          - pattern: sha1.New()
+          - pattern: sha1.Sum(...)
+    severity: WARNING
+    message: >-
+      Weak hash algorithm. Use SHA-256 or stronger.
+    languages: [go]
+    metadata:
+      cwe: ["CWE-328"]
+      category: security
+
+  - id: insecure-random-go
+    patterns:
+      - pattern-either:
+          - pattern: rand.Intn(...)
+          - pattern: rand.Int(...)
+    severity: WARNING
+    message: >-
+      math/rand is not cryptographically secure. Use crypto/rand.
+    languages: [go]
+    metadata:
+      cwe: ["CWE-338"]
+      category: security
+
+  - id: no-tls-verify-go
+    pattern: |
+      &tls.Config{InsecureSkipVerify: true}
+    severity: WARNING
+    message: >-
+      TLS certificate verification is disabled. This allows MITM attacks.
+    languages: [go]
+    metadata:
+      cwe: ["CWE-295"]
+      category: security

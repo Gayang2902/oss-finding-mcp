@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.venv/
+venv/
+.cache/
+.omc/
+.claude-session.md
+*.sarif.json
+.DS_Store

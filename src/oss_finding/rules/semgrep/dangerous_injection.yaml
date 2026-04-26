@@ -1,0 +1,115 @@
+rules:
+  - id: generic-code-injection
+    patterns:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: exec(...)
+          - pattern: compile(...)
+          - pattern: Function(...)
+          - pattern: vm.runInNewContext(...)
+          - pattern: vm.runInContext(...)
+          - pattern: ScriptEngine.eval(...)
+    severity: ERROR
+    message: >-
+      Dynamic code execution detected. If input is user-controlled, this leads to RCE.
+    languages: [python, javascript, typescript, java]
+    metadata:
+      cwe: ["CWE-94"]
+      category: security
+
+  - id: generic-xxe
+    patterns:
+      - pattern-either:
+          - pattern: etree.parse(...)
+          - pattern: etree.fromstring(...)
+          - pattern: minidom.parseString(...)
+          - pattern: pulldom.parse(...)
+          - pattern: DocumentBuilderFactory.newInstance()
+          - pattern: SAXParserFactory.newInstance()
+          - pattern: XMLReaderFactory.createXMLReader()
+          - pattern: simplexml_load_string(...)
+          - pattern: DOMDocument()
+    severity: WARNING
+    message: >-
+      XML parsing detected. Ensure external entity processing is disabled to prevent XXE.
+    languages: [python, java, php]
+    metadata:
+      cwe: ["CWE-611"]
+      category: security
+
+  - id: generic-open-redirect-taint
+    mode: taint
+    severity: WARNING
+    message: >-
+      User input flows into redirect destination. This may allow open redirect.
+    languages: [python, javascript, typescript, java]
+    metadata:
+      cwe: ["CWE-601"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.$ATTR
+              - pattern: req.query.$PARAM
+              - pattern: req.params.$PARAM
+              - pattern: req.body.$PARAM
+              - pattern: request.getParameter(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: redirect(...)
+              - pattern: res.redirect(...)
+              - pattern: $RESP.sendRedirect(...)
+              - pattern: HttpResponseRedirect(...)
+
+  - id: generic-log-injection
+    mode: taint
+    severity: WARNING
+    message: >-
+      User input flows into log statement. This may allow log injection/forging.
+    languages: [python, javascript, typescript, java]
+    metadata:
+      cwe: ["CWE-117"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.$ATTR
+              - pattern: req.query.$PARAM
+              - pattern: req.body.$PARAM
+              - pattern: request.getParameter(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: logger.info(...)
+              - pattern: logger.error(...)
+              - pattern: logger.warning(...)
+              - pattern: logger.debug(...)
+              - pattern: console.log(...)
+              - pattern: log.info(...)
+              - pattern: log.error(...)
+              - pattern: LOG.info(...)
+
+  - id: header-injection
+    mode: taint
+    severity: WARNING
+    message: >-
+      User input flows into HTTP response header. This may allow header injection.
+    languages: [python, javascript, typescript, java]
+    metadata:
+      cwe: ["CWE-113"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: flask.request.$ATTR
+              - pattern: req.query.$PARAM
+              - pattern: req.body.$PARAM
+              - pattern: request.getParameter(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $RESP.setHeader(...)
+              - pattern: res.set(...)
+              - pattern: res.header(...)
+              - pattern: response.headers[...] = ...

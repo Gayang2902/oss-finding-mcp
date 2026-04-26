@@ -1,0 +1,117 @@
+rules:
+  - id: python-pickle-load
+    patterns:
+      - pattern-either:
+          - pattern: pickle.load(...)
+          - pattern: pickle.loads(...)
+          - pattern: _pickle.load(...)
+          - pattern: cPickle.load(...)
+          - pattern: cPickle.loads(...)
+    severity: ERROR
+    message: >-
+      Pickle deserialization can execute arbitrary code. Never unpickle untrusted data.
+    languages: [python]
+    metadata:
+      cwe: ["CWE-502"]
+      category: security
+
+  - id: python-yaml-unsafe
+    patterns:
+      - pattern-either:
+          - pattern: yaml.load(...)
+          - pattern: yaml.unsafe_load(...)
+    fix: yaml.safe_load(...)
+    severity: ERROR
+    message: >-
+      yaml.load() without SafeLoader allows arbitrary code execution.
+      Use yaml.safe_load() instead.
+    languages: [python]
+    metadata:
+      cwe: ["CWE-502"]
+      category: security
+
+  - id: python-marshal-load
+    patterns:
+      - pattern-either:
+          - pattern: marshal.loads(...)
+          - pattern: marshal.load(...)
+    severity: ERROR
+    message: >-
+      marshal module is not secure against malicious data. Do not use with untrusted input.
+    languages: [python]
+    metadata:
+      cwe: ["CWE-502"]
+      category: security
+
+  - id: java-object-deserialization
+    patterns:
+      - pattern-either:
+          - pattern: new ObjectInputStream(...)
+          - pattern: $OIS.readObject()
+          - pattern: $OIS.readUnshared()
+    severity: ERROR
+    message: >-
+      Java ObjectInputStream deserialization can lead to RCE via gadget chains.
+      Use a safe deserialization library or type filter.
+    languages: [java]
+    metadata:
+      cwe: ["CWE-502"]
+      category: security
+
+  - id: java-xmldecoder
+    patterns:
+      - pattern-either:
+          - pattern: new XMLDecoder(...)
+          - pattern: $XD.readObject()
+    severity: ERROR
+    message: >-
+      XMLDecoder can execute arbitrary code during deserialization.
+    languages: [java]
+    metadata:
+      cwe: ["CWE-502"]
+      category: security
+
+  - id: php-unserialize
+    patterns:
+      - pattern-either:
+          - pattern: unserialize(...)
+    severity: ERROR
+    message: >-
+      PHP unserialize() can lead to object injection and RCE.
+    languages: [php]
+    metadata:
+      cwe: ["CWE-502"]
+      category: security
+
+  - id: node-json-parse-taint
+    mode: taint
+    severity: WARNING
+    message: >-
+      User input flows into JSON.parse. Ensure the parsed object is validated
+      before use, as prototype pollution or unexpected properties may result.
+    languages: [javascript, typescript]
+    metadata:
+      cwe: ["CWE-502"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.body
+              - pattern: req.query.$PARAM
+              - pattern: req.params.$PARAM
+    pattern-sinks:
+      - patterns:
+          - pattern: JSON.parse(...)
+
+  - id: go-gob-decode
+    patterns:
+      - pattern-either:
+          - pattern: gob.NewDecoder(...).Decode(...)
+          - pattern: $DEC.Decode(...)
+    severity: WARNING
+    message: >-
+      Gob decoding with untrusted input may lead to resource exhaustion or panics.
+    languages: [go]
+    metadata:
+      cwe: ["CWE-502"]
+      category: security

@@ -1,0 +1,121 @@
+rules:
+  - id: go-command-injection
+    mode: taint
+    severity: ERROR
+    message: >-
+      User input flows into command execution ($SINK). This may allow command injection.
+    languages: [go]
+    metadata:
+      cwe: ["CWE-78"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.URL.Query().Get(...)
+              - pattern: $REQ.FormValue(...)
+              - pattern: $REQ.PostFormValue(...)
+              - pattern: $REQ.Header.Get(...)
+              - pattern: $CTX.Param(...)
+              - pattern: $CTX.Query(...)
+              - pattern: os.Args[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: exec.Command(...)
+              - pattern: exec.CommandContext(...)
+              - pattern: syscall.Exec(...)
+
+  - id: go-sql-injection
+    mode: taint
+    severity: ERROR
+    message: >-
+      User input flows into SQL query ($SINK). Use parameterized queries.
+    languages: [go]
+    metadata:
+      cwe: ["CWE-89"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.URL.Query().Get(...)
+              - pattern: $REQ.FormValue(...)
+              - pattern: $REQ.PostFormValue(...)
+              - pattern: $CTX.Param(...)
+              - pattern: $CTX.Query(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $DB.Query(...)
+              - pattern: $DB.QueryRow(...)
+              - pattern: $DB.Exec(...)
+              - pattern: $DB.QueryContext(...)
+              - pattern: $DB.ExecContext(...)
+
+  - id: go-ssrf
+    mode: taint
+    severity: WARNING
+    message: >-
+      User input flows into HTTP request ($SINK). This may allow SSRF.
+    languages: [go]
+    metadata:
+      cwe: ["CWE-918"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.URL.Query().Get(...)
+              - pattern: $REQ.FormValue(...)
+              - pattern: $CTX.Param(...)
+              - pattern: $CTX.Query(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: http.Get(...)
+              - pattern: http.Post(...)
+              - pattern: http.NewRequest(...)
+              - pattern: $CLIENT.Get(...)
+              - pattern: $CLIENT.Post(...)
+              - pattern: $CLIENT.Do(...)
+
+  - id: go-path-traversal
+    mode: taint
+    severity: ERROR
+    message: >-
+      User input flows into file path ($SINK). This may allow path traversal.
+    languages: [go]
+    metadata:
+      cwe: ["CWE-22"]
+      category: security
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.URL.Query().Get(...)
+              - pattern: $REQ.FormValue(...)
+              - pattern: $CTX.Param(...)
+              - pattern: $CTX.Query(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: os.Open(...)
+              - pattern: os.ReadFile(...)
+              - pattern: os.Create(...)
+              - pattern: filepath.Join(...)
+              - pattern: ioutil.ReadFile(...)
+              - pattern: http.ServeFile(...)
+
+  - id: go-weak-crypto
+    patterns:
+      - pattern-either:
+          - pattern: md5.New()
+          - pattern: md5.Sum(...)
+          - pattern: sha1.New()
+          - pattern: sha1.Sum(...)
+          - pattern: des.NewCipher(...)
+          - pattern: rc4.NewCipher(...)
+    severity: WARNING
+    message: >-
+      Weak cryptographic algorithm. Use SHA-256+ or AES.
+    languages: [go]
+    metadata:
+      cwe: ["CWE-327"]
+      category: security
